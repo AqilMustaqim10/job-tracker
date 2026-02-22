@@ -1,15 +1,10 @@
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 import Badge from "./Badge";
 
-// JobRow renders a single row in the jobs table
-// Props:
-//   job      — the job object from Supabase
-//   onView   — called when the row is clicked (opens detail modal)
-//   onEdit   — called when the edit button is clicked
-//   onDelete — called when the delete button is clicked
+// JobRow renders a single row in the jobs table with fade in/out animation
 export default function JobRow({ job, onView, onEdit, onDelete }) {
   const handleDelete = () => {
-    // Show a toast with action buttons instead of the ugly browser confirm()
     toast("Delete this job?", {
       action: {
         label: "Delete",
@@ -22,8 +17,16 @@ export default function JobRow({ job, onView, onEdit, onDelete }) {
   };
 
   return (
-    // 'group' allows child elements to react to the row being hovered
-    <tr
+    // motion.tr replaces the normal <tr> to enable animations
+    // initial  — state when the row first appears (invisible, shifted up)
+    // animate  — state it animates to (fully visible, normal position)
+    // exit     — state when it's removed (invisible, shifted up)
+    <motion.tr
+      layout
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.2 }}
       onClick={() => onView(job)}
       className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors group cursor-pointer"
     >
@@ -53,12 +56,10 @@ export default function JobRow({ job, onView, onEdit, onDelete }) {
         {job.applied_date || "—"}
       </td>
 
-      {/* Edit & Delete buttons — only visible on row hover */}
+      {/* Edit & Delete buttons */}
       <td className="px-4 py-3.5">
         <div
-          // Stop click from bubbling up to the row's onView handler
           onClick={(e) => e.stopPropagation()}
-          // opacity-0 by default, shows on row hover
           className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <button
@@ -75,6 +76,6 @@ export default function JobRow({ job, onView, onEdit, onDelete }) {
           </button>
         </div>
       </td>
-    </tr>
+    </motion.tr>
   );
 }

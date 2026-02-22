@@ -1,10 +1,6 @@
 import { useState, useMemo } from "react";
-import {
-  useJobs,
-  useDeleteJob,
-  useUpsertJob,
-  useAttachments,
-} from "./hooks/useJobs";
+import { motion, AnimatePresence } from "framer-motion";
+import { useJobs, useDeleteJob, useAttachments } from "./hooks/useJobs";
 import { STATUS_OPTIONS } from "./lib/constants";
 import StatCard from "./components/StatCard";
 import Badge from "./components/Badge";
@@ -14,13 +10,21 @@ import KanbanView from "./components/KanbanView";
 
 // ── JobDetailModal ────────────────────────────────────────────────────────────
 function JobDetailModal({ job, onClose, onEdit }) {
-  const { data: attachments } = useAttachments(job?.id);
+  // Only fetch attachments if job exists
+  const { data: attachments } = useAttachments(job?.id, { enabled: !!job?.id });
+
   if (!job) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-[#111318] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Sticky header */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2 }}
+        className="bg-[#111318] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
+      >
+        {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-white/[0.06] sticky top-0 bg-[#111318] z-10">
           <div>
             <h2 className="text-lg font-semibold text-white">
@@ -49,7 +53,7 @@ function JobDetailModal({ job, onClose, onEdit }) {
 
         {/* Body */}
         <div className="p-6 space-y-5">
-          {/* Status + meta info row */}
+          {/* Status + meta */}
           <div className="flex flex-wrap gap-3 items-center">
             <Badge status={job.status} />
             {job.location && (
@@ -95,42 +99,46 @@ function JobDetailModal({ job, onClose, onEdit }) {
           )}
 
           {/* Attachments */}
-          <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3 font-medium">
-              Attachments
-            </p>
-            {!attachments?.length ? (
-              <p className="text-sm text-gray-600 italic">
-                No attachments yet.
+          {attachments && (
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-3 font-medium">
+                Attachments
               </p>
-            ) : (
-              <div className="space-y-2">
-                {attachments.map((a) => (
-                  <div
-                    key={a.id}
-                    className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/[0.06] rounded-lg"
-                  >
-                    <div className="w-8 h-8 rounded bg-violet-500/20 flex items-center justify-center text-violet-400 text-xs font-bold">
-                      {a.file_type?.split("/")[1]?.toUpperCase()?.slice(0, 3) ||
-                        "FILE"}
+              {!attachments.length ? (
+                <p className="text-sm text-gray-600 italic">
+                  No attachments yet.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {attachments.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/[0.06] rounded-lg"
+                    >
+                      <div className="w-8 h-8 rounded bg-violet-500/20 flex items-center justify-center text-violet-400 text-xs font-bold">
+                        {a.file_type
+                          ?.split("/")[1]
+                          ?.toUpperCase()
+                          ?.slice(0, 3) || "FILE"}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">
+                          {a.file_name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {a.file_size
+                            ? `${(a.file_size / 1024).toFixed(1)} KB`
+                            : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">
-                        {a.file_name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {a.file_size
-                          ? `${(a.file_size / 1024).toFixed(1)} KB`
-                          : ""}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Timestamps */}
+          {/* Timestamp */}
           <div className="pt-2 border-t border-white/[0.06]">
             <p className="text-xs text-gray-600">
               Added{" "}
@@ -142,12 +150,12 @@ function JobDetailModal({ job, onClose, onEdit }) {
             </p>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
 
-// ── App ───────────────────────────────────────────────────────────────────────
+// ── Main App ────────────────────────────────────────────────────────────────
 export default function App() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -221,8 +229,13 @@ export default function App() {
 
       {/* Main */}
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Stats */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"
+        >
           <StatCard
             label="Applied"
             value={stats.Applied || 0}
@@ -253,10 +266,15 @@ export default function App() {
             value={stats.Wishlist || 0}
             color="text-gray-400"
           />
-        </div>
+        </motion.div>
 
-        {/* Filters + view toggle */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        {/* Filters + View toggle */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="flex flex-col sm:flex-row gap-3"
+        >
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -277,33 +295,27 @@ export default function App() {
               </option>
             ))}
           </select>
-
           <div className="flex border border-white/[0.08] rounded-lg overflow-hidden">
             {["table", "kanban"].map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors capitalize ${
-                  view === v
-                    ? "bg-violet-600 text-white"
-                    : "text-gray-500 hover:text-white hover:bg-white/[0.04]"
-                }`}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors capitalize ${view === v ? "bg-violet-600 text-white" : "text-gray-500 hover:text-white hover:bg-white/[0.04]"}`}
               >
                 {v === "table" ? "⊟ Table" : "⊞ Board"}
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Error */}
         {error && (
           <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
-            Error: {error.message}. Check your .env file has correct Supabase
-            URL/key.
+            Error: {error.message}. Check .env
           </div>
         )}
 
-        {/* Loading / Views */}
+        {/* Loading */}
         {isLoading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
@@ -316,7 +328,12 @@ export default function App() {
             onDelete={(id) => deleteJob.mutate(id)}
           />
         ) : (
-          <div className="bg-[#111318] border border-white/[0.06] rounded-xl overflow-hidden">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="bg-[#111318] border border-white/[0.06] rounded-xl overflow-hidden"
+          >
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -336,42 +353,113 @@ export default function App() {
                 <tbody>
                   {jobs?.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-4 py-16 text-center text-gray-600 text-sm"
-                      >
-                        No jobs found. Click "Add Job" to get started.
+                      <td colSpan={6} className="px-4 py-16 text-center">
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.3 }}
+                          className="flex flex-col items-center gap-3"
+                        >
+                          <svg
+                            width="64"
+                            height="64"
+                            viewBox="0 0 64 64"
+                            fill="none"
+                          >
+                            <rect
+                              x="8"
+                              y="16"
+                              width="48"
+                              height="36"
+                              rx="4"
+                              stroke="#374151"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M8 24h48"
+                              stroke="#374151"
+                              strokeWidth="2"
+                            />
+                            <rect
+                              x="16"
+                              y="32"
+                              width="12"
+                              height="2"
+                              rx="1"
+                              fill="#374151"
+                            />
+                            <rect
+                              x="16"
+                              y="38"
+                              width="20"
+                              height="2"
+                              rx="1"
+                              fill="#374151"
+                            />
+                            <circle
+                              cx="48"
+                              cy="48"
+                              r="10"
+                              fill="#1e1e2e"
+                              stroke="#7C3AED"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M48 44v4M48 48h4"
+                              stroke="#7C3AED"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <p className="text-gray-500 text-sm font-medium">
+                            No jobs yet
+                          </p>
+                          <p className="text-gray-700 text-xs">
+                            Click "Add Job" to track your first application
+                          </p>
+                        </motion.div>
                       </td>
                     </tr>
                   ) : (
-                    jobs.map((job) => (
-                      <JobRow
-                        key={job.id}
-                        job={job}
-                        onView={setDetailJob}
-                        onEdit={handleEdit}
-                        onDelete={(id) => deleteJob.mutate(id)}
-                      />
-                    ))
+                    <AnimatePresence>
+                      {jobs.map((job) => (
+                        <JobRow
+                          key={job.id}
+                          job={job}
+                          onView={setDetailJob}
+                          onEdit={handleEdit}
+                          onDelete={(id) => deleteJob.mutate(id)}
+                        />
+                      ))}
+                    </AnimatePresence>
                   )}
                 </tbody>
               </table>
             </div>
-          </div>
+          </motion.div>
         )}
       </main>
 
       {/* Modals */}
-      <JobFormModal
-        open={formOpen}
-        onClose={handleFormClose}
-        initialData={editJob}
-      />
-      <JobDetailModal
-        job={detailJob}
-        onClose={() => setDetailJob(null)}
-        onEdit={handleEdit}
-      />
+      <AnimatePresence>
+        {formOpen && (
+          <JobFormModal
+            open={formOpen}
+            onClose={handleFormClose}
+            initialData={editJob}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {detailJob && (
+          <JobDetailModal
+            job={detailJob}
+            onClose={() => setDetailJob(null)}
+            onEdit={handleEdit}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
