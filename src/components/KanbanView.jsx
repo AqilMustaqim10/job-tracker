@@ -1,9 +1,22 @@
 import { useMemo } from "react";
-import Badge from "./Badge";
-import { STATUS_OPTIONS, STATUS_COLORS } from "../lib/constants";
+import { toast } from "sonner";
+import { STATUS_OPTIONS } from "../lib/constants";
 
 // KanbanCard is a single job card inside a kanban column
 function KanbanCard({ job, onView, onEdit, onDelete }) {
+  const handleDelete = () => {
+    // Toast confirmation instead of browser confirm()
+    toast("Delete this job?", {
+      action: {
+        label: "Delete",
+        onClick: () => onDelete(job.id),
+      },
+      cancel: {
+        label: "Cancel",
+      },
+    });
+  };
+
   return (
     <div
       onClick={() => onView(job)}
@@ -27,9 +40,7 @@ function KanbanCard({ job, onView, onEdit, onDelete }) {
             ✎
           </button>
           <button
-            onClick={() => {
-              if (confirm("Delete?")) onDelete(job.id);
-            }}
+            onClick={handleDelete}
             className="p-1 text-gray-600 hover:text-red-400 transition-colors text-xs"
           >
             ✕
@@ -63,7 +74,7 @@ function KanbanCard({ job, onView, onEdit, onDelete }) {
 //   jobs     — full list of jobs from Supabase
 //   onView, onEdit, onDelete — passed down to each card
 export default function KanbanView({ jobs, onView, onEdit, onDelete }) {
-  // Group jobs by status using useMemo so it only recalculates when jobs changes
+  // Group jobs by status — only recalculates when jobs changes
   const grouped = useMemo(() => {
     // Start with empty arrays for every status
     const g = {};

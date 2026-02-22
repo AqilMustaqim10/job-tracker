@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import Badge from "./Badge";
 
 // JobRow renders a single row in the jobs table
@@ -7,6 +8,19 @@ import Badge from "./Badge";
 //   onEdit   — called when the edit button is clicked
 //   onDelete — called when the delete button is clicked
 export default function JobRow({ job, onView, onEdit, onDelete }) {
+  const handleDelete = () => {
+    // Show a toast with action buttons instead of the ugly browser confirm()
+    toast("Delete this job?", {
+      action: {
+        label: "Delete",
+        onClick: () => onDelete(job.id),
+      },
+      cancel: {
+        label: "Cancel",
+      },
+    });
+  };
+
   return (
     // 'group' allows child elements to react to the row being hovered
     <tr
@@ -44,7 +58,7 @@ export default function JobRow({ job, onView, onEdit, onDelete }) {
         <div
           // Stop click from bubbling up to the row's onView handler
           onClick={(e) => e.stopPropagation()}
-          // opacity-0 by default, group-hover:opacity-100 shows it on row hover
+          // opacity-0 by default, shows on row hover
           className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <button
@@ -54,10 +68,7 @@ export default function JobRow({ job, onView, onEdit, onDelete }) {
             ✎
           </button>
           <button
-            onClick={() => {
-              // Ask user to confirm before deleting
-              if (confirm("Delete this job?")) onDelete(job.id);
-            }}
+            onClick={handleDelete}
             className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
           >
             ✕

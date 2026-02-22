@@ -1,63 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
+import { toast } from "sonner"; // ← add this
 
 // ── useJobs ───────────────────────────────────────────────────────────────────
-// Fetches all jobs from the database
-// Accepts optional filters: { search, status }
-// useQuery automatically handles loading/error states and caches the result
 export function useJobs(filters = {}) {
   return useQuery({
-    // queryKey is like an ID for this query
-    // When filters changes, React Query automatically refetches
     queryKey: ["jobs", filters],
-
     queryFn: async () => {
-      // Start building the query
       let query = supabase
         .from("jobs")
         .select("*")
-        .order("created_at", { ascending: false }); // newest first
+        .order("created_at", { ascending: false });
 
-      // If a status filter is set (and it's not "All"), filter by it
       if (filters.status && filters.status !== "All")
         query = query.eq("status", filters.status);
 
-      // If a search term is set, search in both company name and job title
       if (filters.search)
         query = query.or(
           `company_name.ilike.%${filters.search}%,job_title.ilike.%${filters.search}%`,
         );
 
       const { data, error } = await query;
-
-      // If Supabase returns an error, throw it so React Query catches it
       if (error) throw error;
-
       return data;
     },
   });
 }
 
 // ── useUpsertJob ──────────────────────────────────────────────────────────────
-// Handles both CREATE (insert) and UPDATE
-// If the job has an id → update it
-// If no id → create a new one
 export function useUpsertJob() {
-  // useQueryClient lets us interact with the cache
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (job) => {
-      // Get the currently logged in user
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
-      // Attach the user's id to the job so RLS knows who owns it
       const payload = { ...job, user_id: user?.id };
 
-      // If job has an id, update the existing row
-      // Otherwise insert a new row
       const { data, error } = job.id
         ? await supabase
             .from("jobs")
@@ -71,14 +51,22 @@ export function useUpsertJob() {
       return data;
     },
 
-    // After a successful save, tell React Query to refetch the jobs list
-    // This makes the UI update automatically without a page refresh
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      // Show different message for create vs update
+      variables.id
+        ? toast.success("Job updated successfully!")
+        : toast.success("Job added successfully!");
+    },
+
+    // Show error toast if something goes wrong
+    onError: (error) => {
+      toast.error("Failed to save job: " + error.message);
+    },
   });
 }
 
 // ── useDeleteJob ──────────────────────────────────────────────────────────────
-// Deletes a job by its id
 export function useDeleteJob() {
   const queryClient = useQueryClient();
 
@@ -88,22 +76,22 @@ export function useDeleteJob() {
       if (error) throw error;
     },
 
-    // Refetch jobs list after deletion so the row disappears from the UI
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["jobs"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      toast.success("Job deleted.");
+    },
+
+    onError: (error) => {
+      toast.error("Failed to delete: " + error.message);
+    },
   });
 }
 
 // ── useAttachments ────────────────────────────────────────────────────────────
-// Fetches attachments for a specific job
-// Only runs when a jobId is provided (enabled: !!jobId)
 export function useAttachments(jobId) {
   return useQuery({
     queryKey: ["attachments", jobId],
-
-    // Don't run this query if jobId is null/undefined
-    // This prevents unnecessary requests when no job is selected
     enabled: !!jobId,
-
     queryFn: async () => {
       const { data, error } = await supabase
         .from("job_attachments")
