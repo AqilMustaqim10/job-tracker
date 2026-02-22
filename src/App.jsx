@@ -597,6 +597,15 @@ export default function App() {
             </div>
           </motion.div>
         )}
+        {/* ── Footer ── */}
+        <footer className="border-t border-white/[0.06] mt-12">
+          <div className="max-w-7xl mx-auto px-6 py-6 flex items-center justify-center">
+            <p className="text-xs text-gray-600">
+              Developed by{" "}
+              <span className="text-violet-400 font-medium">AqilMustaqim</span>
+            </p>
+          </div>
+        </footer>
       </main>
 
       {/* ── Modals ── */}
