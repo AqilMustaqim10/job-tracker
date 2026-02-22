@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "./lib/supabase";
 import { useJobs, useDeleteJob, useAttachments } from "./hooks/useJobs";
 import { STATUS_OPTIONS } from "./lib/constants";
 import StatCard from "./components/StatCard";
@@ -7,6 +8,8 @@ import Badge from "./components/Badge";
 import JobRow from "./components/JobRow";
 import JobFormModal from "./components/JobFormModal";
 import KanbanView from "./components/KanbanView";
+import Auth from "./components/Auth";
+import { toast } from "sonner";
 
 // ── JobDetailModal ────────────────────────────────────────────────────────────
 function JobDetailModal({ job, onClose, onEdit }) {
@@ -80,7 +83,6 @@ function JobDetailModal({ job, onClose, onEdit }) {
               </a>
             </div>
           )}
-
           {job.notes && (
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider mb-1 font-medium">
@@ -144,9 +146,7 @@ function JobDetailModal({ job, onClose, onEdit }) {
 }
 
 // ── exportToCSV ───────────────────────────────────────────────────────────────
-// Takes the jobs array and downloads it as a .csv file
 function exportToCSV(jobs) {
-  // Define which columns to include in the CSV
   const headers = [
     "Company",
     "Job Title",
@@ -157,9 +157,6 @@ function exportToCSV(jobs) {
     "Job URL",
     "Notes",
   ];
-
-  // Map each job to a row of values
-  // Wrap each value in quotes to handle commas inside values
   const rows = jobs.map((job) =>
     [
       `"${job.company_name || ""}"`,
@@ -169,33 +166,24 @@ function exportToCSV(jobs) {
       `"${job.location || ""}"`,
       `"${job.applied_date || ""}"`,
       `"${job.job_url || ""}"`,
-      `"${(job.notes || "").replace(/"/g, '""')}"`, // Escape any quotes inside notes
+      `"${(job.notes || "").replace(/"/g, '""')}"`,
     ].join(","),
   );
 
-  // Combine headers and rows into one CSV string
   const csv = [headers.join(","), ...rows].join("\n");
-
-  // Create a temporary link element and trigger a download
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `jobs-${new Date().toISOString().slice(0, 10)}.csv`; // e.g. jobs-2024-03-15.csv
+  a.download = `jobs-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
-
-  // Clean up the temporary URL
   URL.revokeObjectURL(url);
 }
 
 // ── SortIcon ──────────────────────────────────────────────────────────────────
-// Shows an arrow indicating sort direction, or a neutral icon if not sorted
 function SortIcon({ column, sortConfig }) {
-  // If this column is not the active sort column, show a neutral icon
-  if (sortConfig.key !== column) {
+  if (sortConfig.key !== column)
     return <span className="text-gray-700 ml-1">↕</span>;
-  }
-  // Show up or down arrow depending on sort direction
   return (
     <span className="text-violet-400 ml-1">
       {sortConfig.direction === "asc" ? "↑" : "↓"}
@@ -205,21 +193,43 @@ function SortIcon({ column, sortConfig }) {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
-  // ── State ──────────────────────────────────────────────────────────────────
+  // ── ALL HOOKS MUST BE AT THE TOP — no ifs or returns before this line ──────
+
+  // Auth state
+  // undefined = still loading, null = not logged in, object = logged in
+  const [session, setSession] = useState(undefined);
+
+  // UI state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [view, setView] = useState("table");
   const [formOpen, setFormOpen] = useState(false);
   const [editJob, setEditJob] = useState(null);
   const [detailJob, setDetailJob] = useState(null);
-
-  // Sort state — key is the column name, direction is 'asc' or 'desc'
   const [sortConfig, setSortConfig] = useState({
     key: "created_at",
     direction: "desc",
   });
 
-  // ── Data ───────────────────────────────────────────────────────────────────
+  // Listen for auth state changes
+  useEffect(() => {
+    // Get session on first load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    // Subscribe to future login/logout events
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    // Cleanup subscription when component unmounts
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Data hooks — always called, but queries won't run if not logged in
   const {
     data: jobs,
     isLoading,
@@ -231,35 +241,18 @@ export default function App() {
 
   const deleteJob = useDeleteJob();
 
-  // ── Sorting ────────────────────────────────────────────────────────────────
-  // Called when a column header is clicked
-  const handleSort = (key) => {
-    setSortConfig((prev) => ({
-      key,
-      // If clicking the same column, toggle direction
-      // If clicking a new column, start with ascending
-      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
-    }));
-  };
-
-  // Sort the jobs array based on sortConfig
-  // useMemo so it only recalculates when jobs or sortConfig changes
+  // Sort jobs — recalculates when jobs or sortConfig changes
   const sortedJobs = useMemo(() => {
     if (!jobs) return [];
-
     return [...jobs].sort((a, b) => {
       const aVal = a[sortConfig.key] || "";
       const bVal = b[sortConfig.key] || "";
-
-      // Compare as strings (works for text, dates, and numbers stored as text)
       const result = aVal.toString().localeCompare(bVal.toString());
-
-      // Flip the result if descending
       return sortConfig.direction === "asc" ? result : -result;
     });
   }, [jobs, sortConfig]);
 
-  // Count jobs per status for stat cards
+  // Count per status for stat cards
   const stats = useMemo(() => {
     if (!jobs) return {};
     return STATUS_OPTIONS.reduce(
@@ -272,6 +265,14 @@ export default function App() {
   }, [jobs]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
   const handleEdit = (job) => {
     setEditJob(job);
     setFormOpen(true);
@@ -287,18 +288,33 @@ export default function App() {
     setEditJob(null);
   };
 
-  // ── Table columns config ───────────────────────────────────────────────────
-  // Each column has a label, the key to sort by, and whether it's sortable
+  // ── NOW it's safe to do conditional returns ────────────────────────────────
+
+  // Still checking auth — show spinner
+  if (session === undefined) {
+    return (
+      <div className="min-h-screen bg-[#0c0e13] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Not logged in — show auth screen
+  if (session === null) {
+    return <Auth />;
+  }
+
+  // ── Logged in — render the full app ───────────────────────────────────────
+
   const columns = [
     { label: "Company", key: "company_name", sortable: true },
     { label: "Role", key: "job_title", sortable: true },
     { label: "Status", key: "status", sortable: true },
     { label: "Salary", key: "salary", sortable: true },
     { label: "Applied", key: "applied_date", sortable: true },
-    { label: "", key: "", sortable: false }, // actions column
+    { label: "", key: "", sortable: false },
   ];
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
       className="min-h-screen bg-[#0c0e13] text-white"
@@ -320,21 +336,38 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Export to CSV button — only show when there are jobs */}
+            {/* Logged in user's email */}
+            <span className="text-xs text-gray-600 hidden sm:block">
+              {session.user.email}
+            </span>
+
+            {/* Export CSV */}
             {jobs?.length > 0 && (
               <button
                 onClick={() => exportToCSV(jobs)}
-                className="px-4 py-2 text-sm font-medium text-gray-300 border border-white/[0.08] hover:bg-white/[0.04] rounded-lg transition-colors flex items-center gap-2"
+                className="px-4 py-2 text-sm font-medium text-gray-300 border border-white/[0.08] hover:bg-white/[0.04] rounded-lg transition-colors"
               >
                 ↓ Export CSV
               </button>
             )}
 
+            {/* Add Job */}
             <button
               onClick={handleAddNew}
               className="px-4 py-2 text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 rounded-lg transition-colors flex items-center gap-2"
             >
               <span className="text-base leading-none">+</span> Add Job
+            </button>
+
+            {/* Logout */}
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                toast.success("Logged out!");
+              }}
+              className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-white border border-white/[0.08] hover:bg-white/[0.04] rounded-lg transition-colors"
+            >
+              Logout
             </button>
           </div>
         </div>
@@ -460,7 +493,6 @@ export default function App() {
                     {columns.map((col) => (
                       <th
                         key={col.label}
-                        // Only make the header clickable if the column is sortable
                         onClick={() => col.sortable && handleSort(col.key)}
                         className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider select-none ${
                           col.sortable
@@ -469,7 +501,6 @@ export default function App() {
                         }`}
                       >
                         {col.label}
-                        {/* Show sort icon for sortable columns */}
                         {col.sortable && (
                           <SortIcon column={col.key} sortConfig={sortConfig} />
                         )}
