@@ -10,8 +10,7 @@ import KanbanView from "./components/KanbanView";
 
 // ── JobDetailModal ────────────────────────────────────────────────────────────
 function JobDetailModal({ job, onClose, onEdit }) {
-  // Only fetch attachments if job exists
-  const { data: attachments } = useAttachments(job?.id, { enabled: !!job?.id });
+  const { data: attachments } = useAttachments(job?.id);
 
   if (!job) return null;
 
@@ -24,7 +23,6 @@ function JobDetailModal({ job, onClose, onEdit }) {
         transition={{ duration: 0.2 }}
         className="bg-[#111318] border border-white/[0.08] rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto"
       >
-        {/* Header */}
         <div className="flex items-start justify-between px-6 py-4 border-b border-white/[0.06] sticky top-0 bg-[#111318] z-10">
           <div>
             <h2 className="text-lg font-semibold text-white">
@@ -51,9 +49,7 @@ function JobDetailModal({ job, onClose, onEdit }) {
           </div>
         </div>
 
-        {/* Body */}
         <div className="p-6 space-y-5">
-          {/* Status + meta */}
           <div className="flex flex-wrap gap-3 items-center">
             <Badge status={job.status} />
             {job.location && (
@@ -69,7 +65,6 @@ function JobDetailModal({ job, onClose, onEdit }) {
             )}
           </div>
 
-          {/* Job URL */}
           {job.job_url && (
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider mb-1 font-medium">
@@ -86,7 +81,6 @@ function JobDetailModal({ job, onClose, onEdit }) {
             </div>
           )}
 
-          {/* Notes */}
           {job.notes && (
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wider mb-1 font-medium">
@@ -98,47 +92,41 @@ function JobDetailModal({ job, onClose, onEdit }) {
             </div>
           )}
 
-          {/* Attachments */}
-          {attachments && (
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-3 font-medium">
-                Attachments
+          <div>
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3 font-medium">
+              Attachments
+            </p>
+            {!attachments?.length ? (
+              <p className="text-sm text-gray-600 italic">
+                No attachments yet.
               </p>
-              {!attachments.length ? (
-                <p className="text-sm text-gray-600 italic">
-                  No attachments yet.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {attachments.map((a) => (
-                    <div
-                      key={a.id}
-                      className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/[0.06] rounded-lg"
-                    >
-                      <div className="w-8 h-8 rounded bg-violet-500/20 flex items-center justify-center text-violet-400 text-xs font-bold">
-                        {a.file_type
-                          ?.split("/")[1]
-                          ?.toUpperCase()
-                          ?.slice(0, 3) || "FILE"}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white truncate">
-                          {a.file_name}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {a.file_size
-                            ? `${(a.file_size / 1024).toFixed(1)} KB`
-                            : ""}
-                        </p>
-                      </div>
+            ) : (
+              <div className="space-y-2">
+                {attachments.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/[0.06] rounded-lg"
+                  >
+                    <div className="w-8 h-8 rounded bg-violet-500/20 flex items-center justify-center text-violet-400 text-xs font-bold">
+                      {a.file_type?.split("/")[1]?.toUpperCase()?.slice(0, 3) ||
+                        "FILE"}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">
+                        {a.file_name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {a.file_size
+                          ? `${(a.file_size / 1024).toFixed(1)} KB`
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
-          {/* Timestamp */}
           <div className="pt-2 border-t border-white/[0.06]">
             <p className="text-xs text-gray-600">
               Added{" "}
@@ -155,8 +143,69 @@ function JobDetailModal({ job, onClose, onEdit }) {
   );
 }
 
-// ── Main App ────────────────────────────────────────────────────────────────
+// ── exportToCSV ───────────────────────────────────────────────────────────────
+// Takes the jobs array and downloads it as a .csv file
+function exportToCSV(jobs) {
+  // Define which columns to include in the CSV
+  const headers = [
+    "Company",
+    "Job Title",
+    "Status",
+    "Salary",
+    "Location",
+    "Applied Date",
+    "Job URL",
+    "Notes",
+  ];
+
+  // Map each job to a row of values
+  // Wrap each value in quotes to handle commas inside values
+  const rows = jobs.map((job) =>
+    [
+      `"${job.company_name || ""}"`,
+      `"${job.job_title || ""}"`,
+      `"${job.status || ""}"`,
+      `"${job.salary || ""}"`,
+      `"${job.location || ""}"`,
+      `"${job.applied_date || ""}"`,
+      `"${job.job_url || ""}"`,
+      `"${(job.notes || "").replace(/"/g, '""')}"`, // Escape any quotes inside notes
+    ].join(","),
+  );
+
+  // Combine headers and rows into one CSV string
+  const csv = [headers.join(","), ...rows].join("\n");
+
+  // Create a temporary link element and trigger a download
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `jobs-${new Date().toISOString().slice(0, 10)}.csv`; // e.g. jobs-2024-03-15.csv
+  a.click();
+
+  // Clean up the temporary URL
+  URL.revokeObjectURL(url);
+}
+
+// ── SortIcon ──────────────────────────────────────────────────────────────────
+// Shows an arrow indicating sort direction, or a neutral icon if not sorted
+function SortIcon({ column, sortConfig }) {
+  // If this column is not the active sort column, show a neutral icon
+  if (sortConfig.key !== column) {
+    return <span className="text-gray-700 ml-1">↕</span>;
+  }
+  // Show up or down arrow depending on sort direction
+  return (
+    <span className="text-violet-400 ml-1">
+      {sortConfig.direction === "asc" ? "↑" : "↓"}
+    </span>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
+  // ── State ──────────────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [view, setView] = useState("table");
@@ -164,6 +213,13 @@ export default function App() {
   const [editJob, setEditJob] = useState(null);
   const [detailJob, setDetailJob] = useState(null);
 
+  // Sort state — key is the column name, direction is 'asc' or 'desc'
+  const [sortConfig, setSortConfig] = useState({
+    key: "created_at",
+    direction: "desc",
+  });
+
+  // ── Data ───────────────────────────────────────────────────────────────────
   const {
     data: jobs,
     isLoading,
@@ -175,6 +231,35 @@ export default function App() {
 
   const deleteJob = useDeleteJob();
 
+  // ── Sorting ────────────────────────────────────────────────────────────────
+  // Called when a column header is clicked
+  const handleSort = (key) => {
+    setSortConfig((prev) => ({
+      key,
+      // If clicking the same column, toggle direction
+      // If clicking a new column, start with ascending
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  // Sort the jobs array based on sortConfig
+  // useMemo so it only recalculates when jobs or sortConfig changes
+  const sortedJobs = useMemo(() => {
+    if (!jobs) return [];
+
+    return [...jobs].sort((a, b) => {
+      const aVal = a[sortConfig.key] || "";
+      const bVal = b[sortConfig.key] || "";
+
+      // Compare as strings (works for text, dates, and numbers stored as text)
+      const result = aVal.toString().localeCompare(bVal.toString());
+
+      // Flip the result if descending
+      return sortConfig.direction === "asc" ? result : -result;
+    });
+  }, [jobs, sortConfig]);
+
+  // Count jobs per status for stat cards
   const stats = useMemo(() => {
     if (!jobs) return {};
     return STATUS_OPTIONS.reduce(
@@ -186,25 +271,40 @@ export default function App() {
     );
   }, [jobs]);
 
+  // ── Handlers ───────────────────────────────────────────────────────────────
   const handleEdit = (job) => {
     setEditJob(job);
     setFormOpen(true);
   };
+
   const handleAddNew = () => {
     setEditJob(null);
     setFormOpen(true);
   };
+
   const handleFormClose = () => {
     setFormOpen(false);
     setEditJob(null);
   };
 
+  // ── Table columns config ───────────────────────────────────────────────────
+  // Each column has a label, the key to sort by, and whether it's sortable
+  const columns = [
+    { label: "Company", key: "company_name", sortable: true },
+    { label: "Role", key: "job_title", sortable: true },
+    { label: "Status", key: "status", sortable: true },
+    { label: "Salary", key: "salary", sortable: true },
+    { label: "Applied", key: "applied_date", sortable: true },
+    { label: "", key: "", sortable: false }, // actions column
+  ];
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div
       className="min-h-screen bg-[#0c0e13] text-white"
       style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
     >
-      {/* Header */}
+      {/* ── Header ── */}
       <header className="border-b border-white/[0.06] bg-[#0c0e13]/80 backdrop-blur sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -218,18 +318,31 @@ export default function App() {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleAddNew}
-            className="px-4 py-2 text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 rounded-lg transition-colors flex items-center gap-2"
-          >
-            <span className="text-base leading-none">+</span> Add Job
-          </button>
+
+          <div className="flex items-center gap-3">
+            {/* Export to CSV button — only show when there are jobs */}
+            {jobs?.length > 0 && (
+              <button
+                onClick={() => exportToCSV(jobs)}
+                className="px-4 py-2 text-sm font-medium text-gray-300 border border-white/[0.08] hover:bg-white/[0.04] rounded-lg transition-colors flex items-center gap-2"
+              >
+                ↓ Export CSV
+              </button>
+            )}
+
+            <button
+              onClick={handleAddNew}
+              className="px-4 py-2 text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <span className="text-base leading-none">+</span> Add Job
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* Main */}
+      {/* ── Main Content ── */}
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Stats */}
+        {/* ── Stat Cards ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -268,7 +381,7 @@ export default function App() {
           />
         </motion.div>
 
-        {/* Filters + View toggle */}
+        {/* ── Filters + View Toggle ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -281,6 +394,7 @@ export default function App() {
             placeholder="Search company or role..."
             className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-violet-500/60 transition-colors"
           />
+
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -295,12 +409,17 @@ export default function App() {
               </option>
             ))}
           </select>
+
           <div className="flex border border-white/[0.08] rounded-lg overflow-hidden">
             {["table", "kanban"].map((v) => (
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors capitalize ${view === v ? "bg-violet-600 text-white" : "text-gray-500 hover:text-white hover:bg-white/[0.04]"}`}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors capitalize ${
+                  view === v
+                    ? "bg-violet-600 text-white"
+                    : "text-gray-500 hover:text-white hover:bg-white/[0.04]"
+                }`}
               >
                 {v === "table" ? "⊟ Table" : "⊞ Board"}
               </button>
@@ -308,21 +427,21 @@ export default function App() {
           </div>
         </motion.div>
 
-        {/* Error */}
+        {/* ── Error ── */}
         {error && (
           <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
-            Error: {error.message}. Check .env
+            Error: {error.message}
           </div>
         )}
 
-        {/* Loading */}
+        {/* ── Loading ── */}
         {isLoading ? (
           <div className="flex items-center justify-center py-24">
             <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : view === "kanban" ? (
           <KanbanView
-            jobs={jobs}
+            jobs={sortedJobs}
             onView={setDetailJob}
             onEdit={handleEdit}
             onDelete={(id) => deleteJob.mutate(id)}
@@ -338,20 +457,29 @@ export default function App() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-white/[0.06]">
-                    {["Company", "Role", "Status", "Salary", "Applied", ""].map(
-                      (h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                        >
-                          {h}
-                        </th>
-                      ),
-                    )}
+                    {columns.map((col) => (
+                      <th
+                        key={col.label}
+                        // Only make the header clickable if the column is sortable
+                        onClick={() => col.sortable && handleSort(col.key)}
+                        className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider select-none ${
+                          col.sortable
+                            ? "cursor-pointer hover:text-gray-300 transition-colors"
+                            : ""
+                        }`}
+                      >
+                        {col.label}
+                        {/* Show sort icon for sortable columns */}
+                        {col.sortable && (
+                          <SortIcon column={col.key} sortConfig={sortConfig} />
+                        )}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
+
                 <tbody>
-                  {jobs?.length === 0 ? (
+                  {sortedJobs?.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-16 text-center">
                         <motion.div
@@ -422,7 +550,7 @@ export default function App() {
                     </tr>
                   ) : (
                     <AnimatePresence>
-                      {jobs.map((job) => (
+                      {sortedJobs?.map((job) => (
                         <JobRow
                           key={job.id}
                           job={job}
@@ -440,7 +568,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Modals */}
+      {/* ── Modals ── */}
       <AnimatePresence>
         {formOpen && (
           <JobFormModal
