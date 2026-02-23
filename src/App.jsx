@@ -200,6 +200,9 @@ export default function App() {
   const [session, setSession] = useState(undefined);
 
   // UI state
+  // Date range filter state
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [view, setView] = useState("table");
@@ -237,6 +240,8 @@ export default function App() {
   } = useJobs({
     search: search || undefined,
     status: statusFilter,
+    dateFrom: dateFrom || undefined, // only pass if set
+    dateTo: dateTo || undefined, // only pass if set
   });
 
   const deleteJob = useDeleteJob();
@@ -419,44 +424,96 @@ export default function App() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="flex flex-col sm:flex-row gap-3"
+          className="flex flex-col gap-3"
         >
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search company or role..."
-            className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-violet-500/60 transition-colors"
-          />
+          {/* Row 1 — Search + Status + View Toggle */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search */}
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search company or role..."
+              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-violet-500/60 transition-colors"
+            />
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/60 transition-colors"
-          >
-            <option value="All" className="bg-[#1a1d24]">
-              All Statuses
-            </option>
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s} className="bg-[#1a1d24]">
-                {s}
+            {/* Status filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-violet-500/60 transition-colors"
+            >
+              <option value="All" className="bg-[#1a1d24]">
+                All Statuses
               </option>
-            ))}
-          </select>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s} className="bg-[#1a1d24]">
+                  {s}
+                </option>
+              ))}
+            </select>
 
-          <div className="flex border border-white/[0.08] rounded-lg overflow-hidden">
-            {["table", "kanban"].map((v) => (
+            {/* Table / Kanban toggle */}
+            <div className="flex border border-white/[0.08] rounded-lg overflow-hidden">
+              {["table", "kanban"].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors capitalize ${
+                    view === v
+                      ? "bg-violet-600 text-white"
+                      : "text-gray-500 hover:text-white hover:bg-white/[0.04]"
+                  }`}
+                >
+                  {v === "table" ? "⊟ Table" : "⊞ Board"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Row 2 — Date Range */}
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            {/* Label */}
+            <span className="text-xs text-gray-500 font-medium shrink-0">
+              Applied Date
+            </span>
+
+            {/* From date */}
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-xs text-gray-600 shrink-0">From</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/60 transition-colors"
+              />
+            </div>
+
+            {/* Divider */}
+            <span className="text-gray-700 hidden sm:block">→</span>
+
+            {/* To date */}
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-xs text-gray-600 shrink-0">To</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-violet-500/60 transition-colors"
+              />
+            </div>
+
+            {/* Clear button — only show when a date is set */}
+            {(dateFrom || dateTo) && (
               <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors capitalize ${
-                  view === v
-                    ? "bg-violet-600 text-white"
-                    : "text-gray-500 hover:text-white hover:bg-white/[0.04]"
-                }`}
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                }}
+                className="text-xs text-gray-500 hover:text-red-400 border border-white/[0.08] px-3 py-2 rounded-lg hover:bg-red-500/10 transition-colors shrink-0"
               >
-                {v === "table" ? "⊟ Table" : "⊞ Board"}
+                Clear dates
               </button>
-            ))}
+            )}
           </div>
         </motion.div>
 

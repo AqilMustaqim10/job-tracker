@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
-import { toast } from "sonner"; // ← add this
+import { toast } from "sonner";
 
 // ── useJobs ───────────────────────────────────────────────────────────────────
 export function useJobs(filters = {}) {
@@ -19,6 +19,11 @@ export function useJobs(filters = {}) {
         query = query.or(
           `company_name.ilike.%${filters.search}%,job_title.ilike.%${filters.search}%`,
         );
+
+      // Filter by applied_date range if either date is set
+      if (filters.dateFrom) query = query.gte("applied_date", filters.dateFrom); // greater than or equal
+
+      if (filters.dateTo) query = query.lte("applied_date", filters.dateTo); // less than or equal
 
       const { data, error } = await query;
       if (error) throw error;
@@ -50,16 +55,12 @@ export function useUpsertJob() {
       if (error) throw error;
       return data;
     },
-
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      // Show different message for create vs update
       variables.id
         ? toast.success("Job updated successfully!")
         : toast.success("Job added successfully!");
     },
-
-    // Show error toast if something goes wrong
     onError: (error) => {
       toast.error("Failed to save job: " + error.message);
     },
@@ -75,12 +76,10 @@ export function useDeleteJob() {
       const { error } = await supabase.from("jobs").delete().eq("id", id);
       if (error) throw error;
     },
-
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       toast.success("Job deleted.");
     },
-
     onError: (error) => {
       toast.error("Failed to delete: " + error.message);
     },
