@@ -179,3 +179,30 @@ export function useDeleteAttachment() {
     },
   });
 }
+// ── useUpdateJobStatus ────────────────────────────────────────────────────────
+// Updates only the status field of a job
+// Used when dragging a card between kanban columns
+export function useUpdateJobStatus() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ jobId, status }) => {
+      const { data, error } = await supabase
+        .from("jobs")
+        .update({ status })
+        .eq("id", jobId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      // Refetch jobs so the card moves to the correct column
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+    },
+    onError: (error) => {
+      toast.error("Failed to move job: " + error.message);
+    },
+  });
+}
