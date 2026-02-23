@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "./lib/supabase";
-import { useJobs, useDeleteJob, useAttachments } from "./hooks/useJobs";
+import { useJobs, useDeleteJob } from "./hooks/useJobs";
 import { useQueryClient } from "@tanstack/react-query";
 import { STATUS_OPTIONS } from "./lib/constants";
 import StatCard from "./components/StatCard";
@@ -11,11 +11,10 @@ import JobFormModal from "./components/JobFormModal";
 import KanbanView from "./components/KanbanView";
 import Auth from "./components/Auth";
 import { toast } from "sonner";
+import AttachmentsPanel from "./components/AttachmentsPanel";
 
 // ── JobDetailModal ────────────────────────────────────────────────────────────
 function JobDetailModal({ job, onClose, onEdit }) {
-  const { data: attachments } = useAttachments(job?.id);
-
   if (!job) return null;
 
   return (
@@ -99,35 +98,8 @@ function JobDetailModal({ job, onClose, onEdit }) {
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-3 font-medium">
               Attachments
             </p>
-            {!attachments?.length ? (
-              <p className="text-sm text-gray-600 italic">
-                No attachments yet.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {attachments.map((a) => (
-                  <div
-                    key={a.id}
-                    className="flex items-center gap-3 p-3 bg-white/[0.03] border border-white/[0.06] rounded-lg"
-                  >
-                    <div className="w-8 h-8 rounded bg-violet-500/20 flex items-center justify-center text-violet-400 text-xs font-bold">
-                      {a.file_type?.split("/")[1]?.toUpperCase()?.slice(0, 3) ||
-                        "FILE"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-white truncate">
-                        {a.file_name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {a.file_size
-                          ? `${(a.file_size / 1024).toFixed(1)} KB`
-                          : ""}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* AttachmentsPanel handles upload, view and delete */}
+            <AttachmentsPanel jobId={job.id} />
           </div>
 
           <div className="pt-2 border-t border-white/[0.06]">

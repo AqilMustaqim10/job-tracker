@@ -20,10 +20,9 @@ export function useJobs(filters = {}) {
           `company_name.ilike.%${filters.search}%,job_title.ilike.%${filters.search}%`,
         );
 
-      // Filter by applied_date range if either date is set
-      if (filters.dateFrom) query = query.gte("applied_date", filters.dateFrom); // greater than or equal
+      if (filters.dateFrom) query = query.gte("applied_date", filters.dateFrom);
 
-      if (filters.dateTo) query = query.lte("applied_date", filters.dateTo); // less than or equal
+      if (filters.dateTo) query = query.lte("applied_date", filters.dateTo);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -87,19 +86,96 @@ export function useDeleteJob() {
 }
 
 // ── useAttachments ────────────────────────────────────────────────────────────
+// Fetches all attachments for a specific job
+// Only runs when jobId is provided
 export function useAttachments(jobId) {
   return useQuery({
-    queryKey: ["attachments", jobId],
-    enabled: !!jobId,
+    queryKey: ["attachments", jobId], // ← key is "attachments" not "job-attachments"
+    enabled: !!jobId, // don't run if jobId is null/undefined
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("job_attachments")
+        .from("job_attachments") // ← table name uses underscore
         .select("*")
         .eq("job_id", jobId)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+// ── useUploadAttachment ───────────────────────────────────────────────────────
+export function useUploadAttachment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ jobId, file }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const filePath = `${user.id}/${jobId}/${Date.now()}_${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("job-attachments") // ← bucket name uses hyphen
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data, error } = await supabase
+        .from("job_attachments") // ← table name uses underscore
+        .insert({
+          job_id: jobId,
+          file_name: file.name,
+          file_size: file.size,
+          file_type: file.type,
+          storage_path: filePath,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      // Must match the queryKey in useAttachments above
+      queryClient.invalidateQueries({ queryKey: ["attachments", data.job_id] });
+      toast.success("File uploaded!");
+    },
+    onError: (error) => {
+      toast.error("Upload failed: " + error.message);
+    },
+  });
+}
+
+// ── useDeleteAttachment ───────────────────────────────────────────────────────
+export function useDeleteAttachment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ attachment, jobId }) => {
+      const { error: storageError } = await supabase.storage
+        .from("job-attachments") // ← bucket name uses hyphen
+        .remove([attachment.storage_path]);
+
+      if (storageError) throw storageError;
+
+      const { error } = await supabase
+        .from("job_attachments") // ← table name uses underscore
+        .delete()
+        .eq("id", attachment.id);
+
+      if (error) throw error;
+      return jobId;
+    },
+    onSuccess: (jobId) => {
+      // Must match the queryKey in useAttachments above
+      queryClient.invalidateQueries({ queryKey: ["attachments", jobId] });
+      toast.success("Attachment deleted.");
+    },
+    onError: (error) => {
+      toast.error("Delete failed: " + error.message);
     },
   });
 }
