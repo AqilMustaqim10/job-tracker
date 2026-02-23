@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "./lib/supabase";
 import { useJobs, useDeleteJob, useAttachments } from "./hooks/useJobs";
+import { useQueryClient } from "@tanstack/react-query";
 import { STATUS_OPTIONS } from "./lib/constants";
 import StatCard from "./components/StatCard";
 import Badge from "./components/Badge";
@@ -201,6 +202,7 @@ export default function App() {
 
   // UI state
   // Date range filter state
+  const queryClient = useQueryClient();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [search, setSearch] = useState("");
@@ -226,9 +228,15 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+
+      // When user logs in, tell React Query to refetch everything
+      // This ensures fresh data loads immediately after login
+      // without needing a manual page refresh
+      if (session) {
+        queryClient.invalidateQueries();
+      }
     });
 
-    // Cleanup subscription when component unmounts
     return () => subscription.unsubscribe();
   }, []);
 
