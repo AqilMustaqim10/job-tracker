@@ -1,36 +1,71 @@
 # 🚀 JobTracker
 
-A full-stack job application tracking app built with React, Supabase, and TanStack Query.
+A full-stack job application tracking app built from scratch with React, Supabase, and TanStack Query.
+
+![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=white&style=flat-square)
+![Supabase](https://img.shields.io/badge/Supabase-Database-3ecf8e?logo=supabase&logoColor=white&style=flat-square)
+![TanStack Query](https://img.shields.io/badge/TanStack-Query-ff4154?style=flat-square)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38bdf8?logo=tailwindcss&logoColor=white&style=flat-square)
+![Framer Motion](https://img.shields.io/badge/Framer-Motion-black?logo=framer&logoColor=white&style=flat-square)
+![Vercel](https://img.shields.io/badge/Deployed-Vercel-black?logo=vercel&logoColor=white&style=flat-square)
 
 ---
 
 ## ✨ Features
 
-- 🔐 **Authentication** — Email/password login and signup via Supabase Auth
-- 📋 **Table View** — Sortable columns (company, role, status, salary, date)
-- 🗂️ **Kanban Board** — Visual pipeline grouped by job status
-- 🔍 **Search & Filter** — Filter by company name, role, or status
-- 📅 **Date Range Filter** — Filter jobs by applied date (From / To)
-- 📤 **Export to CSV** — Download all your jobs as a spreadsheet
-- 🔔 **Toast Notifications** — Feedback on every action
-- 🎬 **Animations** — Smooth transitions with Framer Motion
-- 📎 **Attachments** — View files attached to each job
-- 📊 **Stats Dashboard** — Live counts per status
+### 📋 Job Management
+
+- Add, edit, and delete job applications
+- Track status through the full pipeline: **Wishlist → Applied → Interview → Offer → Accepted / Rejected**
+- Add notes, salary, location, job URL, and applied date per job
+
+### 🗂️ Views
+
+- **Table View** — sortable columns (company, role, status, salary, date)
+- **Kanban Board** — visual pipeline with **drag and drop** between columns
+
+### 🔍 Search & Filter
+
+- Search by company name or job title
+- Filter by status
+- Filter by applied date range (From / To)
+
+### 📎 Attachments
+
+- Upload files (PDF, Word, Excel, Images) per job
+- View and download attachments
+- Delete attachments
+
+### 🔐 Authentication
+
+- Email and password login / signup
+- Each user sees only their own data (Row Level Security)
+- Logout from anywhere
+
+### 🎨 UI & UX
+
+- Smooth animations with Framer Motion
+- Toast notifications for every action
+- Empty state illustrations
+- Styled violet scrollbar on kanban
+- Export all jobs to CSV
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Category           | Technology                      |
-| ------------------ | ------------------------------- |
-| Frontend           | React 18 + Vite                 |
-| Styling            | Tailwind CSS v4 + Shadcn/ui     |
-| Data Fetching      | TanStack Query (React Query v5) |
-| Backend / Database | Supabase (PostgreSQL)           |
-| Authentication     | Supabase Auth                   |
-| Animations         | Framer Motion                   |
-| Notifications      | Sonner                          |
-| Deployment         | Vercel                          |
+| Category           | Technology                  |
+| ------------------ | --------------------------- |
+| Frontend           | React 18 + Vite             |
+| Styling            | Tailwind CSS v4 + Shadcn/ui |
+| Data Fetching      | TanStack Query v5           |
+| Backend / Database | Supabase (PostgreSQL)       |
+| Authentication     | Supabase Auth               |
+| File Storage       | Supabase Storage            |
+| Animations         | Framer Motion               |
+| Drag & Drop        | dnd-kit                     |
+| Notifications      | Sonner                      |
+| Deployment         | Vercel                      |
 
 ---
 
@@ -40,7 +75,7 @@ A full-stack job application tracking app built with React, Supabase, and TanSta
 
 - Node.js v20 or higher
 - A Supabase account and project
-- A GitHub account
+- A Vercel account (for deployment)
 
 ### Installation
 
@@ -113,6 +148,27 @@ CREATE POLICY "select_own_attachments" ON job_attachments FOR SELECT
   ));
 ```
 
+### Storage Setup
+
+1. Go to Supabase → Storage → New Bucket
+2. Name it `job-attachments`
+3. Enable **Public bucket**
+4. Run these policies in SQL Editor:
+
+```sql
+CREATE POLICY "upload_own_files"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'job-attachments' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "read_own_files"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'job-attachments' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "delete_own_files"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'job-attachments' AND auth.uid()::text = (storage.foldername(name))[1]);
+```
+
 ### Run Locally
 
 ```bash
@@ -131,8 +187,9 @@ To deploy your own instance:
 
 1. Push your code to GitHub
 2. Go to [vercel.com](https://vercel.com) and import your repo
-3. Add your environment variables in Vercel's project settings
+3. Add your `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel's environment variables
 4. Click Deploy
+5. Go to Supabase → Authentication → URL Configuration and add your Vercel URL as the Site URL
 
 ---
 
@@ -141,19 +198,25 @@ To deploy your own instance:
 ```
 src/
 ├── lib/
-│   ├── supabase.js        # Supabase client
-│   └── constants.js       # Status options, colors, empty form
+│   ├── supabase.js           # Supabase client
+│   └── constants.js          # Status options, colors, empty form
 ├── hooks/
-│   └── useJobs.js         # TanStack Query hooks (fetch, upsert, delete)
+│   └── useJobs.js            # All TanStack Query hooks
+│                               (useJobs, useUpsertJob, useDeleteJob,
+│                                useAttachments, useUploadAttachment,
+│                                useDeleteAttachment, useUpdateJobStatus)
 ├── components/
-│   ├── ui/                # Shadcn/ui components
-│   ├── Auth.jsx           # Login / Signup screen
-│   ├── Badge.jsx          # Status pill badge
-│   ├── StatCard.jsx       # Dashboard stat card
-│   ├── JobFormModal.jsx   # Add / Edit job form
-│   ├── JobRow.jsx         # Table row
-│   └── KanbanView.jsx     # Kanban board
-└── App.jsx                # Main app component
+│   ├── ui/                   # Shadcn/ui components
+│   ├── Auth.jsx              # Login / Signup screen
+│   ├── Badge.jsx             # Status pill badge
+│   ├── StatCard.jsx          # Dashboard stat card
+│   ├── JobFormModal.jsx      # Add / Edit job form
+│   ├── AttachmentsPanel.jsx  # Upload, view, delete attachments
+│   ├── JobRow.jsx            # Table row
+│   └── KanbanView.jsx        # Kanban board with drag and drop
+├── App.jsx                   # Main app + JobDetailModal
+├── main.jsx                  # Entry point + QueryClient
+└── index.css                 # Tailwind + custom scrollbar
 ```
 
 ---
