@@ -1,1 +1,24 @@
 @import "tailwindcss";
+
+/* ── Kanban custom scrollbar ─────────────────────────────────────────────── */
+
+/* The scrollbar track (background) */
+.kanban-container::-webkit-scrollbar {
+  height: 6px; /* thin horizontal scrollbar */
+}
+
+.kanban-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 999px;
+}
+
+/* The scrollbar thumb (the draggable part) */
+.kanban-container::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.4); /* violet */
+  border-radius: 999px;
+}
+
+/* Thumb on hover */
+.kanban-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.8);
+}
