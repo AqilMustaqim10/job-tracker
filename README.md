@@ -158,17 +158,6 @@ src/
 
 ---
 
-## 🗺️ Roadmap
-
-- [ ] Drag and drop kanban columns
-- [ ] Google OAuth login
-- [ ] Mobile responsive UI
-- [ ] File upload to Supabase Storage
-- [ ] Interview date reminders
-- [ ] Analytics charts
-
----
-
 ## 👨‍💻 Developer
 
 Built by **AqilMustaqim**
